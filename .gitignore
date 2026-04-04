@@ -19,6 +19,11 @@ Thumbs.db
 *.class
 *.jar
 
+# Gradle
+.gradle/
+*/.gradle/
+*/.vite/
+
 # Logs
 *.log
 
