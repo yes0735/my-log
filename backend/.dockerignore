@@ -1,0 +1,9 @@
+.git
+.gradle
+build
+node_modules
+*.md
+docs
+frontend
+.idea
+*.iml
