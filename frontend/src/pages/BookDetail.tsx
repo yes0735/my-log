@@ -67,8 +67,9 @@ export default function BookDetail() {
     setLocalPage(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      updateMutation.mutate({ currentPage: value });
-      setLocalPage(null);
+      updateMutation.mutate({ currentPage: value }, {
+        onSettled: () => setLocalPage(null),
+      });
     }, 500);
   }, [updateMutation]);
 
