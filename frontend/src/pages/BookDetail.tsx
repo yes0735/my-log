@@ -51,9 +51,13 @@ export default function BookDetail() {
     mutationFn: (data: { status?: string; rating?: number; currentPage?: number }) =>
       bookApi.updateMyBook(Number(id), data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['myBook', id] });
-      // 진행률(슬라이더) 변경 시에는 토스트 미표시
-      if (!('currentPage' in variables) || Object.keys(variables).length > 1) {
+      if ('currentPage' in variables && Object.keys(variables).length === 1) {
+        // 진행률만 변경 → 캐시 직접 업데이트 (refetch 없이)
+        qc.setQueryData(['myBook', id], (old: any) =>
+          old ? { ...old, currentPage: variables.currentPage } : old
+        );
+      } else {
+        qc.invalidateQueries({ queryKey: ['myBook', id] });
         toast.success('업데이트되었습니다');
       }
     },
