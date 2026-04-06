@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
@@ -50,11 +50,27 @@ export default function BookDetail() {
   const updateMutation = useMutation({
     mutationFn: (data: { status?: string; rating?: number; currentPage?: number }) =>
       bookApi.updateMyBook(Number(id), data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['myBook', id] });
-      toast.success('업데이트되었습니다');
+      // 진행률(슬라이더) 변경 시에는 토스트 미표시
+      if (!('currentPage' in variables) || Object.keys(variables).length > 1) {
+        toast.success('업데이트되었습니다');
+      }
     },
   });
+
+  // 진행률 슬라이더 debounce — 드래그 중에는 로컬 상태만 변경, 멈추면 API 호출
+  const [localPage, setLocalPage] = useState<number | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePageChange = useCallback((value: number) => {
+    setLocalPage(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      updateMutation.mutate({ currentPage: value });
+      setLocalPage(null);
+    }, 500);
+  }, [updateMutation]);
 
   const deleteMutation = useMutation({
     mutationFn: () => bookApi.removeFromShelf(Number(id)),
@@ -182,8 +198,9 @@ export default function BookDetail() {
   if (!userBook) return <p className="text-muted">책을 찾을 수 없습니다</p>;
 
   const { book, status, rating, currentPage } = userBook;
-  const progress = book.totalPages && currentPage
-    ? Math.round((currentPage / book.totalPages) * 100)
+  const displayPage = localPage ?? currentPage;
+  const progress = book.totalPages && displayPage
+    ? Math.round((displayPage / book.totalPages) * 100)
     : 0;
 
   return (
@@ -232,9 +249,9 @@ export default function BookDetail() {
 
           {status === 'READING' && book.totalPages && (
             <div className="mt-3">
-              <label className="text-sm font-medium">진행률: {currentPage}/{book.totalPages} ({progress}%)</label>
-              <input type="range" min={0} max={book.totalPages} value={currentPage || 0}
-                onChange={(e) => updateMutation.mutate({ currentPage: parseInt(e.target.value) })}
+              <label className="text-sm font-medium">진행률: {displayPage}/{book.totalPages} ({progress}%)</label>
+              <input type="range" min={0} max={book.totalPages} value={displayPage || 0}
+                onChange={(e) => handlePageChange(parseInt(e.target.value))}
                 className="mt-1 w-full" />
             </div>
           )}
