@@ -18,12 +18,13 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     api.get('/auth/me')
       .then((res) => {
         setUser(res.data.data);
+        setChecking(false);
       })
       .catch(() => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      })
-      .finally(() => setChecking(false));
+        // 인터셉터가 refresh 실패 시 이미 /login으로 이동하므로
+        // 여기서는 checking만 해제 (토큰 삭제는 인터셉터에 위임)
+        setChecking(false);
+      });
   }, [isAuthenticated, setUser]);
 
   if (checking) {
@@ -34,7 +35,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !localStorage.getItem('accessToken')) {
     return (
       <Navigate
         to={`/login?returnUrl=${encodeURIComponent(location.pathname + location.search)}`}
