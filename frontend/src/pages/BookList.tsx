@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
-import BookCard from '@/features/books/BookCard';
+import SortableBookCard from '@/features/books/SortableBookCard';
 import AdBanner from '@/components/ads/AdBanner';
-import { IoGridOutline, IoListOutline } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoTrashOutline } from 'react-icons/io5';
 import type { UserBook } from '@/types/book';
+import toast from 'react-hot-toast';
+
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  rectSortingStrategy,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 
 const statusFilters = [
   { value: '', label: '전체' },
@@ -18,11 +34,12 @@ const sortOptions = [
   { value: 'createdAt,desc', label: '최신순' },
   { value: 'title,asc', label: '제목순' },
   { value: 'rating,desc', label: '별점순' },
+  { value: 'custom', label: '사용자 정렬' },
 ];
 
 type ViewMode = 'grid' | 'list';
 
-function BookListRow({ userBook }: { userBook: UserBook }) {
+function BookListRow({ userBook, onDelete }: { userBook: UserBook; onDelete: (id: number) => void }) {
   const { book, status, rating } = userBook;
   const progress = book.totalPages && userBook.currentPage
     ? Math.round((userBook.currentPage / book.totalPages) * 100)
@@ -35,47 +52,103 @@ function BookListRow({ userBook }: { userBook: UserBook }) {
   };
 
   return (
-    <Link
-      to={`/books/${userBook.id}`}
-      className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 transition-shadow hover:shadow-md"
-    >
-      <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded bg-secondary/50">
-        {book.coverImageUrl ? (
-          <img src={book.coverImageUrl} alt={book.title} className="h-full rounded object-contain" />
-        ) : (
-          <span className="text-xl">📖</span>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="line-clamp-1 text-sm font-medium">{book.title}</p>
-        <p className="text-xs text-muted">{book.author}</p>
-      </div>
-      {status === 'READING' && (
-        <div className="hidden w-32 sm:block">
-          <div className="h-1.5 w-full rounded-full bg-secondary">
-            <div className="h-1.5 rounded-full bg-primary" style={{ width: `${progress}%` }} />
-          </div>
-          <p className="mt-0.5 text-xs text-muted text-right">{progress}%</p>
+    <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 transition-shadow hover:shadow-md group">
+      <Link to={`/books/${userBook.id}`} className="flex flex-1 items-center gap-4 min-w-0">
+        <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded bg-secondary/50">
+          {book.coverImageUrl ? (
+            <img src={book.coverImageUrl} alt={book.title} className="h-full rounded object-contain" />
+          ) : (
+            <span className="text-xl">📖</span>
+          )}
         </div>
-      )}
-      {rating ? (
-        <span className="shrink-0 text-xs text-yellow-500">{'★'.repeat(Math.floor(rating))}{rating % 1 >= 0.5 ? '½' : ''} {rating}</span>
-      ) : null}
-      <span className="shrink-0 rounded-full px-2 py-0.5 text-xs text-muted">{statusLabels[status]}</span>
-    </Link>
+        <div className="flex-1 min-w-0">
+          <p className="line-clamp-1 text-sm font-medium">{book.title}</p>
+          <p className="text-xs text-muted">{book.author}</p>
+        </div>
+        {status === 'READING' && (
+          <div className="hidden w-32 sm:block">
+            <div className="h-1.5 w-full rounded-full bg-secondary">
+              <div className="h-1.5 rounded-full bg-primary" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="mt-0.5 text-xs text-muted text-right">{progress}%</p>
+          </div>
+        )}
+        {rating ? (
+          <span className="shrink-0 text-xs text-yellow-500">{'★'.repeat(Math.floor(rating))} {rating}</span>
+        ) : null}
+        <span className="shrink-0 rounded-full px-2 py-0.5 text-xs text-muted">{statusLabels[status]}</span>
+      </Link>
+      <button
+        onClick={() => onDelete(userBook.id)}
+        className="shrink-0 rounded p-1.5 text-muted opacity-0 group-hover:opacity-100
+                   hover:bg-red-500/10 hover:text-red-500 transition-all"
+        title="서재에서 제거"
+      >
+        <IoTrashOutline size={16} />
+      </button>
+    </div>
   );
 }
 
 export default function BookList() {
+  const qc = useQueryClient();
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState('createdAt,desc');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [localOrder, setLocalOrder] = useState<UserBook[] | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['myBooks', status, page, sort],
-    queryFn: () => bookApi.getMyBooks({ status: status || undefined, page, size: 20, sort }),
+    queryFn: () => bookApi.getMyBooks({ status: status || undefined, page, size: 20, sort: sort === 'custom' ? 'createdAt,desc' : sort }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => bookApi.removeFromShelf(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myBooks'] });
+      toast.success('서재에서 제거되었습니다');
+    },
+    onError: () => toast.error('제거에 실패했습니다'),
+  });
+
+  const handleDelete = useCallback((id: number) => {
+    if (confirm('이 책을 서재에서 제거하시겠습니까?')) {
+      deleteMutation.mutate(id);
+      // 로컬 순서에서도 즉시 제거
+      setLocalOrder((prev) => prev ? prev.filter((ub) => ub.id !== id) : null);
+    }
+  }, [deleteMutation]);
+
+  // DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const items = localOrder ?? data?.content ?? [];
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const currentItems = localOrder ?? data?.content ?? [];
+    const oldIndex = currentItems.findIndex((ub) => ub.id === active.id);
+    const newIndex = currentItems.findIndex((ub) => ub.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newOrder = arrayMove(currentItems, oldIndex, newIndex);
+      setLocalOrder(newOrder);
+      // 사용자 정렬 모드로 자동 전환
+      if (sort !== 'custom') setSort('custom');
+    }
+  }, [localOrder, data?.content, sort]);
+
+  // 서버 정렬 변경 시 로컬 순서 초기화
+  const handleSortChange = (newSort: string) => {
+    setSort(newSort);
+    setPage(0);
+    if (newSort !== 'custom') setLocalOrder(null);
+  };
 
   return (
     <div>
@@ -110,7 +183,7 @@ export default function BookList() {
           {statusFilters.map((f) => (
             <button
               key={f.value}
-              onClick={() => { setStatus(f.value); setPage(0); }}
+              onClick={() => { setStatus(f.value); setPage(0); setLocalOrder(null); }}
               className={`rounded-full px-3 py-1 text-sm transition-colors ${
                 status === f.value
                   ? 'bg-primary text-primary-foreground'
@@ -123,7 +196,7 @@ export default function BookList() {
         </div>
         <select
           value={sort}
-          onChange={(e) => { setSort(e.target.value); setPage(0); }}
+          onChange={(e) => handleSortChange(e.target.value)}
           className="ml-auto rounded-md border border-border bg-background px-3 py-1 text-sm"
         >
           {sortOptions.map((o) => (
@@ -132,9 +205,13 @@ export default function BookList() {
         </select>
       </div>
 
+      {sort === 'custom' && (
+        <p className="mb-3 text-xs text-muted">카드를 드래그하여 순서를 변경할 수 있습니다</p>
+      )}
+
       {isLoading ? (
         <p className="text-muted">로딩 중...</p>
-      ) : data?.content?.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-muted">
           <span className="text-5xl">📚</span>
           <p className="mt-4 text-lg">서재가 비어있습니다</p>
@@ -144,19 +221,27 @@ export default function BookList() {
         </div>
       ) : (
         <>
-          {viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {data?.content?.map((ub) => (
-                <BookCard key={ub.id} userBook={ub} />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {data?.content?.map((ub) => (
-                <BookListRow key={ub.id} userBook={ub} />
-              ))}
-            </div>
-          )}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={items.map((ub) => ub.id)}
+              strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
+            >
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {items.map((ub) => (
+                    <SortableBookCard key={ub.id} userBook={ub} onDelete={handleDelete} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {items.map((ub) => (
+                    <BookListRow key={ub.id} userBook={ub} onDelete={handleDelete} />
+                  ))}
+                </div>
+              )}
+            </SortableContext>
+          </DndContext>
+
           {data && data.totalPages > 1 && (
             <div className="mt-6 flex justify-center gap-2">
               <button
@@ -181,7 +266,6 @@ export default function BookList() {
         </>
       )}
 
-      {/* AdSense — Design Ref: §9.8 */}
       <AdBanner
         adClient="ca-pub-XXXXXXXX"
         adSlot="BOOKLIST_SLOT_ID"

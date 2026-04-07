@@ -10,6 +10,9 @@ export default function BookSearch() {
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [tab, setTab] = useState<'search' | 'manual'>('search');
+  // 페이지 수 입력 팝업
+  const [pendingBook, setPendingBook] = useState<BookSearchResult | null>(null);
+  const [pageInput, setPageInput] = useState('');
 
   // Manual form state
   const [manual, setManual] = useState({ title: '', author: '', publisher: '', totalPages: '', isbn: '', coverImageUrl: '' });
@@ -28,14 +31,14 @@ export default function BookSearch() {
   };
 
   const addMutation = useMutation({
-    mutationFn: async (result: BookSearchResult) => {
+    mutationFn: async ({ result, totalPages }: { result: BookSearchResult; totalPages?: number }) => {
       const book = await bookApi.create({
         isbn: result.isbn,
         title: result.title,
         author: result.author,
         publisher: result.publisher,
         coverImageUrl: result.coverImageUrl,
-        totalPages: result.totalPages ?? undefined,
+        totalPages: totalPages ?? result.totalPages ?? undefined,
         description: result.description,
       });
       await bookApi.addToShelf(book.id);
@@ -43,12 +46,32 @@ export default function BookSearch() {
     },
     onSuccess: () => {
       toast.success('서재에 추가되었습니다!');
+      setPendingBook(null);
+      setPageInput('');
     },
     onError: (err: unknown) => {
       const error = err as { response?: { data?: { error?: { message?: string } } } };
       toast.error(error.response?.data?.error?.message || '추가에 실패했습니다');
     },
   });
+
+  const handleAddClick = (result: BookSearchResult) => {
+    // 페이지 수가 없으면 입력 팝업 표시
+    if (!result.totalPages) {
+      setPendingBook(result);
+      setPageInput('');
+    } else {
+      addMutation.mutate({ result });
+    }
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingBook) return;
+    addMutation.mutate({
+      result: pendingBook,
+      totalPages: pageInput ? parseInt(pageInput) : undefined,
+    });
+  };
 
   const manualMutation = useMutation({
     mutationFn: async () => {
@@ -125,7 +148,7 @@ export default function BookSearch() {
                   <p className="mt-1 line-clamp-2 text-xs text-muted">{r.description}</p>
                 </div>
                 <button
-                  onClick={() => addMutation.mutate(r)}
+                  onClick={() => handleAddClick(r)}
                   disabled={addMutation.isPending}
                   className="w-full shrink-0 self-center rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
                 >
@@ -167,6 +190,45 @@ export default function BookSearch() {
             {manualMutation.isPending ? '등록 중...' : '등록 및 서재에 추가'}
           </button>
         </form>
+      )}
+
+      {/* 페이지 수 입력 팝업 */}
+      {pendingBook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-card p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">총 페이지 수 입력</h3>
+            <p className="mt-1 text-sm text-muted">
+              <strong>{pendingBook.title}</strong>의 총 페이지 수를 입력하세요.
+              <br />진행률 추적에 사용됩니다. (선택사항)
+            </p>
+            <input
+              type="number"
+              min={1}
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              placeholder="예: 320"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirmAdd()}
+              className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm
+                         focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                onClick={() => { setPendingBook(null); setPageInput(''); }}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-secondary"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirmAdd}
+                disabled={addMutation.isPending}
+                className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {addMutation.isPending ? '추가 중...' : pageInput ? '추가' : '페이지 수 없이 추가'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

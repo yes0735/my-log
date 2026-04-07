@@ -76,6 +76,11 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
 
+# Naver Book Search API
+naver:
+  client-id: arfLd8NTbndr22CjIcVT
+  client-secret: RMI0TMsXrc
+
 # Logging
 logging:
   level:
