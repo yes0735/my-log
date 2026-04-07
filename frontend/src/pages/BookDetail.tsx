@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
-import { categoryApi, type Category } from '@/features/category/api';
+import { categoryApi } from '@/features/category/api';
 import RecordList from '@/features/records/RecordList';
 import { reviewApi } from '@/features/reviews/api';
 import ReviewEditor from '@/features/reviews/ReviewEditor';

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
 import { recordApi, type ReadingRecord } from '@/features/records/api';
 import { formatDate } from '@/lib/utils';
 import { IoCalendarOutline, IoBookOutline } from 'react-icons/io5';
-import type { UserBook } from '@/types/book';
 import toast from 'react-hot-toast';
 
 interface RecordWithBook extends ReadingRecord {
@@ -16,7 +15,6 @@ interface RecordWithBook extends ReadingRecord {
 }
 
 export default function Records() {
-  const qc = useQueryClient();
   const [allRecords, setAllRecords] = useState<RecordWithBook[]>([]);
   const [loading, setLoading] = useState(true);
 
