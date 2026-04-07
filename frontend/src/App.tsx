@@ -23,6 +23,8 @@ import Feed from '@/pages/Feed';
 import Challenges from '@/pages/Challenges';
 import ChallengeDetail from '@/pages/ChallengeDetail';
 import Leaderboard from '@/pages/Leaderboard';
+import Records from '@/pages/Records';
+import RecordDetail from '@/pages/RecordDetail';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Design Ref: §5.3 — React Router page routes
@@ -44,6 +46,8 @@ export default function App() {
             <Route path="/books" element={<BookList />} />
             <Route path="/books/search" element={<BookSearch />} />
             <Route path="/books/:id" element={<BookDetail />} />
+            <Route path="/records" element={<Records />} />
+            <Route path="/records/:id" element={<RecordDetail />} />
             <Route path="/reviews" element={<ReviewList />} />
             <Route path="/reviews/:id/edit" element={<ReviewEdit />} />
             <Route path="/stats" element={<Stats />} />

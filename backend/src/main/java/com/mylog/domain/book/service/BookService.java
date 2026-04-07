@@ -56,4 +56,14 @@ public class BookService {
                         com.mylog.global.exception.ErrorCode.BOOK_NOT_FOUND));
         return BookResponse.from(book);
     }
+
+    @Transactional
+    public BookResponse updateBook(Long id, BookUpdateRequest request) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new com.mylog.global.exception.BusinessException(
+                        com.mylog.global.exception.ErrorCode.BOOK_NOT_FOUND));
+        book.update(request.getTitle(), request.getAuthor(), request.getPublisher(),
+                request.getTotalPages(), request.getDescription());
+        return BookResponse.from(book);
+    }
 }

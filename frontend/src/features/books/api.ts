@@ -34,4 +34,7 @@ export const bookApi = {
 
   removeFromShelf: (id: number) =>
     api.delete(`/my/books/${id}`),
+
+  updateBook: (bookId: number, data: { title?: string; author?: string; publisher?: string; totalPages?: number; description?: string }) =>
+    api.patch<ApiResponse<Book>>(`/books/${bookId}`, data).then((r) => r.data.data),
 };

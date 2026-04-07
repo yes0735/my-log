@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
+import { categoryApi, type Category } from '@/features/category/api';
 import SortableBookCard from '@/features/books/SortableBookCard';
 import AdBanner from '@/components/ads/AdBanner';
 import { IoGridOutline, IoListOutline, IoTrashOutline } from 'react-icons/io5';
@@ -34,12 +35,11 @@ const sortOptions = [
   { value: 'createdAt,desc', label: '최신순' },
   { value: 'title,asc', label: '제목순' },
   { value: 'rating,desc', label: '별점순' },
-  { value: 'custom', label: '사용자 정렬' },
 ];
 
 type ViewMode = 'grid' | 'list';
 
-function BookListRow({ userBook, onDelete }: { userBook: UserBook; onDelete: (id: number) => void }) {
+function BookListRow({ userBook, onDelete, categories = [] }: { userBook: UserBook; onDelete: (id: number) => void; categories?: Category[] }) {
   const { book, status, rating } = userBook;
   const progress = book.totalPages && userBook.currentPage
     ? Math.round((userBook.currentPage / book.totalPages) * 100)
@@ -63,7 +63,12 @@ function BookListRow({ userBook, onDelete }: { userBook: UserBook; onDelete: (id
         </div>
         <div className="flex-1 min-w-0">
           <p className="line-clamp-1 text-sm font-medium">{book.title}</p>
-          <p className="text-xs text-muted">{book.author}</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted">{book.author}</span>
+            {categories.map((c) => (
+              <span key={c.id} className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: c.color }}>{c.name}</span>
+            ))}
+          </div>
         </div>
         {status === 'READING' && (
           <div className="hidden w-32 sm:block">
@@ -93,15 +98,37 @@ function BookListRow({ userBook, onDelete }: { userBook: UserBook; onDelete: (id
 export default function BookList() {
   const qc = useQueryClient();
   const [status, setStatus] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState('createdAt,desc');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [localOrder, setLocalOrder] = useState<UserBook[] | null>(null);
+  const [bookCategoryMap, setBookCategoryMap] = useState<Record<number, Category[]>>({});
+
+  const { data: categories } = useQuery({
+    queryKey: ['myCategories'],
+    queryFn: () => categoryApi.getCategories(),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['myBooks', status, page, sort],
-    queryFn: () => bookApi.getMyBooks({ status: status || undefined, page, size: 20, sort: sort === 'custom' ? 'createdAt,desc' : sort }),
+    queryFn: () => bookApi.getMyBooks({ status: status || undefined, page, size: 100, sort: sort === 'custom' ? 'createdAt,desc' : sort }),
   });
+
+  // 각 책의 카테고리 로드
+  const allBooks = data?.content ?? [];
+  useEffect(() => {
+    if (!allBooks.length) return;
+    const load = async () => {
+      const map: Record<number, Category[]> = {};
+      await Promise.all(allBooks.map(async (ub) => {
+        try { map[ub.id] = await categoryApi.getBookCategories(ub.id); }
+        catch { map[ub.id] = []; }
+      }));
+      setBookCategoryMap(map);
+    };
+    load();
+  }, [allBooks.length]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => bookApi.removeFromShelf(id),
@@ -125,7 +152,10 @@ export default function BookList() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const items = localOrder ?? data?.content ?? [];
+  const filteredByCategory = selectedCategory
+    ? allBooks.filter((ub) => bookCategoryMap[ub.id]?.some((c) => c.id === selectedCategory))
+    : allBooks;
+  const items = localOrder ?? filteredByCategory;
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -205,9 +235,34 @@ export default function BookList() {
         </select>
       </div>
 
-      {sort === 'custom' && (
-        <p className="mb-3 text-xs text-muted">카드를 드래그하여 순서를 변경할 수 있습니다</p>
+      {/* Category filters */}
+      {categories && categories.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => { setSelectedCategory(null); setLocalOrder(null); }}
+            className={`rounded-full px-3 py-1 text-sm transition-colors ${
+              !selectedCategory ? 'bg-foreground text-background' : 'bg-secondary text-foreground hover:bg-secondary/80'
+            }`}
+          >
+            전체 카테고리
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => { setSelectedCategory(selectedCategory === cat.id ? null : cat.id); setLocalOrder(null); }}
+              className="rounded-full px-3 py-1 text-sm text-white transition-opacity"
+              style={{
+                backgroundColor: cat.color,
+                opacity: selectedCategory === cat.id ? 1 : 0.6,
+              }}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
       )}
+
+      <p className="mb-3 text-xs text-muted">카드를 드래그하여 순서를 변경할 수 있습니다</p>
 
       {isLoading ? (
         <p className="text-muted">로딩 중...</p>
@@ -229,13 +284,13 @@ export default function BookList() {
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {items.map((ub) => (
-                    <SortableBookCard key={ub.id} userBook={ub} onDelete={handleDelete} />
+                    <SortableBookCard key={ub.id} userBook={ub} onDelete={handleDelete} categories={bookCategoryMap[ub.id] || []} />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-2">
                   {items.map((ub) => (
-                    <BookListRow key={ub.id} userBook={ub} onDelete={handleDelete} />
+                    <BookListRow key={ub.id} userBook={ub} onDelete={handleDelete} categories={bookCategoryMap[ub.id] || []} />
                   ))}
                 </div>
               )}

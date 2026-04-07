@@ -44,4 +44,12 @@ public class Book extends BaseEntity {
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
+
+    public void update(String title, String author, String publisher, Integer totalPages, String description) {
+        if (title != null) this.title = title;
+        if (author != null) this.author = author;
+        if (publisher != null) this.publisher = publisher;
+        if (totalPages != null) this.totalPages = totalPages;
+        if (description != null) this.description = description;
+    }
 }

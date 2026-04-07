@@ -2,6 +2,7 @@ package com.mylog.domain.book.controller;
 
 import com.mylog.domain.book.dto.BookCreateRequest;
 import com.mylog.domain.book.dto.BookResponse;
+import com.mylog.domain.book.dto.BookUpdateRequest;
 import com.mylog.domain.book.service.BookService;
 import com.mylog.global.common.ApiResponse;
 import com.mylog.infra.booksearch.BookSearchResult;
@@ -44,5 +45,13 @@ public class BookController {
     @GetMapping("/{id}")
     public ApiResponse<BookResponse> getBook(@PathVariable Long id) {
         return ApiResponse.ok(bookService.getBook(id));
+    }
+
+    @Operation(summary = "책 정보 수정")
+    @PatchMapping("/{id}")
+    public ApiResponse<BookResponse> updateBook(
+            @PathVariable Long id,
+            @RequestBody BookUpdateRequest request) {
+        return ApiResponse.ok(bookService.updateBook(id, request));
     }
 }

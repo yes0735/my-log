@@ -16,12 +16,19 @@ const statusColors: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
 };
 
+interface CategoryInfo {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface Props {
   userBook: UserBook;
   onDelete: (id: number) => void;
+  categories?: CategoryInfo[];
 }
 
-export default function SortableBookCard({ userBook, onDelete }: Props) {
+export default function SortableBookCard({ userBook, onDelete, categories = [] }: Props) {
   const { book, status, rating } = userBook;
   const progress = book.totalPages && userBook.currentPage
     ? Math.round((userBook.currentPage / book.totalPages) * 100)
@@ -71,9 +78,9 @@ export default function SortableBookCard({ userBook, onDelete }: Props) {
 
       <Link
         to={`/books/${userBook.id}`}
-        className="flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
+        className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
       >
-        <div className="flex h-48 items-center justify-center bg-secondary/50">
+        <div className="flex h-48 shrink-0 items-center justify-center bg-secondary/50">
           {book.coverImageUrl ? (
             <img src={book.coverImageUrl} alt={book.title} className="h-full object-contain" />
           ) : (
@@ -85,6 +92,11 @@ export default function SortableBookCard({ userBook, onDelete }: Props) {
             {book.title}
           </h3>
           <p className="mt-1 text-xs text-muted">{book.author}</p>
+          <div className="mt-1.5 min-h-[20px] flex flex-wrap gap-1">
+            {categories.map((c) => (
+              <span key={c.id} className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: c.color }}>{c.name}</span>
+            ))}
+          </div>
           <div className="mt-auto flex items-center justify-between pt-2">
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[status]}`}>
               {statusLabels[status]}
@@ -93,11 +105,11 @@ export default function SortableBookCard({ userBook, onDelete }: Props) {
               <span className="text-xs text-yellow-500">{'★'.repeat(Math.floor(rating))} {rating}</span>
             )}
           </div>
-          {status === 'READING' && progress > 0 && (
-            <div className="mt-2 h-1.5 w-full rounded-full bg-secondary">
+          <div className="mt-2 h-1.5 w-full rounded-full bg-secondary">
+            {status === 'READING' && progress > 0 && (
               <div className="h-1.5 rounded-full bg-primary" style={{ width: `${progress}%` }} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Link>
     </div>

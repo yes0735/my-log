@@ -65,4 +65,26 @@ public class CategoryController {
     public void deleteTag(Authentication auth, @PathVariable Long id) {
         categoryService.deleteTag((Long) auth.getPrincipal(), id);
     }
+
+    // Book-Category associations
+    @Operation(summary = "책의 카테고리 목록")
+    @GetMapping("/books/{userBookId}/categories")
+    public ApiResponse<List<CategoryResponse>> getBookCategories(@PathVariable Long userBookId) {
+        return ApiResponse.ok(categoryService.getBookCategories(userBookId));
+    }
+
+    @Operation(summary = "책에 카테고리 추가")
+    @PostMapping("/books/{userBookId}/categories/{categoryId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Void> addCategoryToBook(@PathVariable Long userBookId, @PathVariable Long categoryId) {
+        categoryService.addCategoryToBook(userBookId, categoryId);
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "책에서 카테고리 제거")
+    @DeleteMapping("/books/{userBookId}/categories/{categoryId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeCategoryFromBook(@PathVariable Long userBookId, @PathVariable Long categoryId) {
+        categoryService.removeCategoryFromBook(userBookId, categoryId);
+    }
 }
