@@ -211,7 +211,7 @@ export default function BookSearch() {
               onChange={(e) => setPageInput(e.target.value)}
               placeholder="예: 320"
               autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleConfirmAdd()}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleConfirmAdd(); } }}
               className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm
                          focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />

@@ -316,14 +316,16 @@ export default function RecordDetail() {
                           type="text"
                           value={newCategoryName}
                           onChange={(e) => setNewCategoryName(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && newCategoryName.trim() && createCategoryMutation.mutate(newCategoryName.trim())}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newCategoryName.trim() && !createCategoryMutation.isPending) createCategoryMutation.mutate(newCategoryName.trim()); } }}
                           placeholder="새 카테고리명"
                           autoFocus
                           className="w-24 rounded border border-border bg-background px-2 py-1 text-xs"
                         />
                         <button
-                          onClick={() => newCategoryName.trim() && createCategoryMutation.mutate(newCategoryName.trim())}
-                          className="rounded bg-primary px-1.5 py-1 text-xs text-primary-foreground"
+                          type="button"
+                          disabled={createCategoryMutation.isPending}
+                          onClick={() => newCategoryName.trim() && !createCategoryMutation.isPending && createCategoryMutation.mutate(newCategoryName.trim())}
+                          className="rounded bg-primary px-1.5 py-1 text-xs text-primary-foreground disabled:opacity-50"
                         >
                           <IoCheckmarkOutline size={12} />
                         </button>

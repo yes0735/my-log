@@ -11,7 +11,6 @@ import { timerApi } from '@/features/timer/api';
 import type { ReadingSession } from '@/features/timer/api';
 import { formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import { IoCreateOutline, IoCheckmarkOutline, IoCloseOutline, IoAddOutline } from 'react-icons/io5';
 
 const statusLabels: Record<string, string> = {
   WANT_TO_READ: '읽고 싶은',
@@ -37,9 +36,6 @@ export default function BookDetail() {
   const [activeSession, setActiveSession] = useState<ReadingSession | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  // 책 정보 수정 상태
-  const [editingBook, setEditingBook] = useState(false);
-  const [editBookForm, setEditBookForm] = useState({ title: '', author: '', publisher: '', totalPages: '', description: '' });
 
   // 카테고리 상태
   const [showCategoryAdd, setShowCategoryAdd] = useState(false);
@@ -68,8 +64,6 @@ export default function BookDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myBook', id] });
       qc.invalidateQueries({ queryKey: ['myBooks'] });
-      toast.success('책 정보가 수정되었습니다');
-      setEditingBook(false);
     },
   });
 
@@ -83,8 +77,30 @@ export default function BookDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bookCategories', id] }),
   });
 
+  const deleteCatMutation = useMutation({
+    mutationFn: (categoryId: number) => categoryApi.deleteCategory(categoryId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myCategories'] });
+      qc.invalidateQueries({ queryKey: ['bookCategories', id] });
+    },
+  });
+
+  const [showCatDropdown, setShowCatDropdown] = useState(false);
+
+  const CATEGORY_COLORS = [
+    '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
+    '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+    '#0ea5e9', '#10b981', '#a855f7', '#d946ef', '#64748b',
+  ];
+
+  const createCatLock = useRef(false);
   const createCatMutation = useMutation({
-    mutationFn: (name: string) => categoryApi.createCategory({ name }),
+    mutationFn: async (name: string) => {
+      if (createCatLock.current) throw new Error('duplicate');
+      createCatLock.current = true;
+      const color = CATEGORY_COLORS[(allCategories.length) % CATEGORY_COLORS.length];
+      return categoryApi.createCategory({ name, color });
+    },
     onSuccess: async (cat) => {
       qc.invalidateQueries({ queryKey: ['myCategories'] });
       await categoryApi.addCategoryToBook(Number(id), cat.id);
@@ -92,29 +108,14 @@ export default function BookDetail() {
       setNewCategoryName('');
       setShowCategoryAdd(false);
     },
+    onSettled: () => { createCatLock.current = false; },
   });
 
-  const startEditBook = () => {
-    if (!userBook) return;
-    setEditBookForm({
-      title: userBook.book.title,
-      author: userBook.book.author,
-      publisher: userBook.book.publisher || '',
-      totalPages: userBook.book.totalPages?.toString() || '',
-      description: userBook.book.description || '',
-    });
-    setEditingBook(true);
-  };
+  const handleCreateCategory = useCallback((name: string) => {
+    if (!name.trim() || createCatLock.current) return;
+    createCatMutation.mutate(name.trim());
+  }, [createCatMutation]);
 
-  const saveBookEdit = () => {
-    updateBookInfoMutation.mutate({
-      title: editBookForm.title || undefined,
-      author: editBookForm.author || undefined,
-      publisher: editBookForm.publisher || undefined,
-      totalPages: editBookForm.totalPages ? parseInt(editBookForm.totalPages) : undefined,
-      description: editBookForm.description || undefined,
-    });
-  };
 
   const { data: reviews } = useQuery({
     queryKey: ['bookReviews', id],
@@ -133,7 +134,6 @@ export default function BookDetail() {
         );
       } else {
         qc.invalidateQueries({ queryKey: ['myBook', id] });
-        toast.success('업데이트되었습니다');
       }
     },
   });
@@ -275,6 +275,22 @@ export default function BookDetail() {
     return `${m}:${s}`;
   };
 
+  // 인라인 편집 — blur 시 자동 저장 (Hook은 early return 위에 선언)
+  const handleInlineSave = useCallback((field: string, value: string) => {
+    if (!userBook) return;
+    const current = userBook.book as any;
+    if (current[field] === value) return;
+    const data: any = {};
+    if (field === 'totalPages') {
+      const num = parseInt(value);
+      if (isNaN(num) && !value) return;
+      data[field] = num || undefined;
+    } else {
+      data[field] = value || undefined;
+    }
+    updateBookInfoMutation.mutate(data);
+  }, [userBook, updateBookInfoMutation]);
+
   if (isLoading) return <p className="text-muted">로딩 중...</p>;
   if (!userBook) return <p className="text-muted">책을 찾을 수 없습니다</p>;
 
@@ -284,284 +300,214 @@ export default function BookDetail() {
     ? Math.round((displayPage / book.totalPages) * 100)
     : 0;
 
+  const statusColorMap: Record<string, string> = {
+    WANT_TO_READ: '#3b82f6', READING: '#eab308', COMPLETED: '#22c55e',
+  };
+
   return (
     <div className="mx-auto max-w-3xl">
-      {/* Back button */}
-      <button
-        onClick={() => editingBook ? setEditingBook(false) : navigate(-1)}
-        className="mb-4 flex items-center gap-1 text-sm text-muted hover:text-foreground"
-      >
-        ← {editingBook ? '상세 페이지' : '이전 페이지'}
+      {/* 뒤로가기 */}
+      <button onClick={() => navigate(-1)} className="mb-3 text-[13px] text-muted hover:text-foreground">
+        ← 이전 페이지
       </button>
 
-      {/* Book info header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-        <div className="flex h-48 w-32 shrink-0 items-center justify-center self-center rounded-lg bg-secondary/50 sm:h-64 sm:w-44 sm:self-start">
+      {/* 노션 커버 영역 */}
+      <div className="relative mb-16 flex h-36 items-end rounded-xl bg-gradient-to-br from-primary/10 via-secondary/30 to-primary/5 sm:h-44">
+        <div className="absolute -bottom-12 left-6 flex h-32 w-[5.5rem] items-center justify-center rounded-lg border border-border/40 bg-card shadow-lg sm:h-40 sm:w-28">
           {book.coverImageUrl ? (
             <img src={book.coverImageUrl} alt={book.title} className="h-full rounded-lg object-contain" />
-          ) : (
-            <span className="text-6xl">📖</span>
-          )}
+          ) : <span className="text-5xl">📖</span>}
         </div>
-
-        <div className="flex-1">
-          {editingBook ? (
-            /* 책 정보 수정 모드 */
-            <div className="space-y-3">
-              {/* 카테고리 — 제목 위 */}
-              <div>
-                <label className="block text-xs text-muted">카테고리</label>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {bookCategories.map((cat) => (
-                    <span key={cat.id} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-white"
-                      style={{ backgroundColor: cat.color }}>
-                      {cat.name}
-                      <button onClick={() => removeCatMutation.mutate(cat.id)} className="ml-0.5 hover:opacity-70">×</button>
-                    </span>
-                  ))}
-                  {allCategories.filter((c) => !bookCategories.some((bc) => bc.id === c.id)).length > 0 && (
-                    <select onChange={(e) => { if (e.target.value) { addCatMutation.mutate(Number(e.target.value)); e.target.value = ''; } }}
-                      className="rounded-full border border-dashed border-border bg-background px-2 py-1 text-xs" defaultValue="">
-                      <option value="" disabled>+ 추가</option>
-                      {allCategories.filter((c) => !bookCategories.some((bc) => bc.id === c.id)).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
-                  {showCategoryAdd ? (
-                    <div className="flex items-center gap-1">
-                      <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && newCategoryName.trim() && createCatMutation.mutate(newCategoryName.trim())}
-                        placeholder="새 카테고리" autoFocus className="w-24 rounded border border-border bg-background px-2 py-1 text-xs" />
-                      <button onClick={() => newCategoryName.trim() && createCatMutation.mutate(newCategoryName.trim())}
-                        className="rounded bg-primary px-1.5 py-1 text-xs text-primary-foreground"><IoCheckmarkOutline size={12} /></button>
-                      <button onClick={() => { setShowCategoryAdd(false); setNewCategoryName(''); }}
-                        className="rounded border border-border px-1.5 py-1 text-xs"><IoCloseOutline size={12} /></button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setShowCategoryAdd(true)}
-                      className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-1 text-xs text-muted hover:bg-secondary">
-                      <IoAddOutline size={12} /> 새 카테고리
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs text-muted">제목</label>
-                <input value={editBookForm.title} onChange={(e) => setEditBookForm({ ...editBookForm, title: e.target.value })}
-                  className="mt-1 w-full rounded border border-border bg-background px-3 py-1.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-muted">저자</label>
-                <input value={editBookForm.author} onChange={(e) => setEditBookForm({ ...editBookForm, author: e.target.value })}
-                  className="mt-1 w-full rounded border border-border bg-background px-3 py-1.5 text-sm" />
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-muted">출판사</label>
-                  <input value={editBookForm.publisher} onChange={(e) => setEditBookForm({ ...editBookForm, publisher: e.target.value })}
-                    className="mt-1 w-full rounded border border-border bg-background px-3 py-1.5 text-sm" />
-                </div>
-                <div className="w-28">
-                  <label className="block text-xs text-muted">총 페이지</label>
-                  <input type="number" value={editBookForm.totalPages} onChange={(e) => setEditBookForm({ ...editBookForm, totalPages: e.target.value })}
-                    className="mt-1 w-full rounded border border-border bg-background px-3 py-1.5 text-sm" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-muted">설명</label>
-                <textarea value={editBookForm.description} onChange={(e) => setEditBookForm({ ...editBookForm, description: e.target.value })}
-                  rows={3} className="mt-1 w-full rounded border border-border bg-background px-3 py-1.5 text-sm" />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                  <button onClick={() => { if (confirm('이 책을 서재에서 제거하시겠습니까?')) deleteMutation.mutate(); }}
-                    className="flex items-center gap-1 rounded border border-destructive px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10">
-                    서재에서 제거
-                  </button>
-                  <button onClick={() => setEditingBook(false)}
-                    className="flex items-center gap-1 rounded border border-border px-3 py-1.5 text-sm hover:bg-secondary">
-                    <IoCloseOutline /> 취소
-                  </button>
-                </div>
-                <button onClick={saveBookEdit} disabled={updateBookInfoMutation.isPending}
-                  className="flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                  <IoCheckmarkOutline /> 저장
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* 책 정보 표시 모드 */
-            <>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">{book.title}</h1>
-                  <p className="mt-1 text-muted">{book.author}</p>
-                  {book.publisher && <p className="text-sm text-muted">{book.publisher}</p>}
-                  {book.totalPages && <p className="text-sm text-muted">{book.totalPages}페이지</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => { if (confirm('이 책을 서재에서 제거하시겠습니까?')) deleteMutation.mutate(); }}
-                    className="flex items-center gap-1 rounded border border-destructive px-2.5 py-1.5 text-sm text-destructive hover:bg-destructive/10">
-                    서재에서 제거
-                  </button>
-                  <button onClick={startEditBook}
-                    className="flex items-center gap-1 rounded border border-border px-2.5 py-1.5 text-sm text-muted hover:bg-secondary hover:text-foreground">
-                    <IoCreateOutline size={16} /> 책정보 수정
-                  </button>
-                </div>
-              </div>
-
-              {/* 카테고리 배지 */}
-              {bookCategories.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {bookCategories.map((cat) => (
-                    <span key={cat.id} className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                      style={{ backgroundColor: cat.color }}>{cat.name}</span>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {!editingBook && (
-            <>
-              <div className="mt-4 flex items-center gap-3">
-                <label className="text-sm font-medium">상태:</label>
-                <select value={status}
-                  onChange={(e) => updateMutation.mutate({ status: e.target.value })}
-                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm">
-                  {Object.entries(statusLabels).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mt-3 flex items-center gap-3">
-                <label className="text-sm font-medium">별점:</label>
-                <div className="flex flex-wrap gap-1">
-                  {[0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].map((v) => (
-                    <button key={v}
-                      onClick={() => updateMutation.mutate({ rating: v })}
-                      className={`rounded px-2 py-0.5 text-xs border ${
-                        rating === v ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-secondary'
-                      }`}>
-                      {v}★
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {!editingBook && status === 'READING' && book.totalPages && (
-            <div className="mt-3">
-              <label className="text-sm font-medium">진행률: {displayPage}/{book.totalPages} ({progress}%)</label>
-              <input type="range" min={0} max={book.totalPages} value={displayPage || 0}
-                onChange={(e) => handlePageChange(parseInt(e.target.value))}
-                className="mt-1 w-full" />
-            </div>
-          )}
-
-          {/* Timer widget — only when READING */}
-          {!editingBook && status === 'READING' && (
-            <div className="mt-4 rounded-lg border border-border p-3">
-              <div className="flex items-center gap-3">
-                {activeSession ? (
-                  <>
-                    <span className="font-mono text-lg font-semibold text-primary">
-                      {formatElapsed(elapsed)}
-                    </span>
-                    <button
-                      onClick={handleStopSession}
-                      disabled={stopSessionMutation.isPending}
-                      className="rounded bg-destructive px-3 py-1 text-sm text-white hover:bg-destructive/90 disabled:opacity-50">
-                      독서 종료
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => startSessionMutation.mutate()}
-                    disabled={startSessionMutation.isPending}
-                    className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                    독서 시작
-                  </button>
-                )}
-              </div>
-              {/* Recent sessions */}
-              {sessions && sessions.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs font-medium text-muted">최근 독서 기록</p>
-                  {sessions.slice(0, 3).map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 text-xs text-muted">
-                      <span>{formatDate(s.startTime)}</span>
-                      {s.durationMinutes != null && <span>{s.durationMinutes}분</span>}
-                      {s.pagesRead != null && <span>· {s.pagesRead}쪽</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
+        <div className="absolute right-4 top-4">
+          <button onClick={() => { if (confirm('이 책을 서재에서 제거하시겠습니까?')) deleteMutation.mutate(); }}
+            className="rounded-md bg-card/80 px-2.5 py-1 text-[11px] text-destructive backdrop-blur-sm hover:bg-card">제거</button>
         </div>
       </div>
 
-      {/* Tabs — 수정 모드에서는 숨김 */}
-      {!editingBook && <>
-      <div className="mt-8 flex gap-4 border-b border-border">
+      {/* 제목 — 인라인 편집 */}
+      <input
+        defaultValue={book.title}
+        onBlur={(e) => handleInlineSave('title', e.target.value)}
+        className="w-full border-none bg-transparent text-2xl font-bold outline-none placeholder:text-muted focus:bg-secondary/30 rounded px-1 -ml-1"
+        placeholder="제목"
+      />
+
+      {/* 노션 프로퍼티 블록 */}
+      <div className="mt-4 space-y-0 divide-y divide-border/30 rounded-lg border border-border/40 bg-black/[0.01] dark:bg-white/[0.01]">
+        {/* 저자 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">저자</span>
+          <input defaultValue={book.author} onBlur={(e) => handleInlineSave('author', e.target.value)}
+            className="flex-1 border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 rounded px-1 -ml-1" />
+        </div>
+        {/* 출판사 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">출판사</span>
+          <input defaultValue={book.publisher || ''} onBlur={(e) => handleInlineSave('publisher', e.target.value)}
+            placeholder="없음" className="flex-1 border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 rounded px-1 -ml-1" />
+        </div>
+        {/* 총 페이지 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">페이지</span>
+          <input type="number" defaultValue={book.totalPages || ''} onBlur={(e) => handleInlineSave('totalPages', e.target.value)}
+            placeholder="0" className="w-24 border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 rounded px-1 -ml-1" />
+        </div>
+        {/* 상태 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">상태</span>
+          <select value={status} onChange={(e) => updateMutation.mutate({ status: e.target.value })}
+            className="rounded border-none bg-transparent text-[13px] font-medium outline-none" style={{ color: statusColorMap[status] }}>
+            {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        {/* 별점 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">별점</span>
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((v) => (
+              <button key={v} onClick={() => updateMutation.mutate({ rating: v })}
+                className={`text-lg transition-colors ${rating && rating >= v ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-300'}`}>★</button>
+            ))}
+            {rating && <span className="ml-1 self-center text-xs text-muted">{rating}</span>}
+          </div>
+        </div>
+        {/* 카테고리 */}
+        <div className="flex items-start gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 pt-0.5 text-xs text-muted">카테고리</span>
+          <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            {bookCategories.map((cat) => (
+              <span key={cat.id} className="group/cat inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-white"
+                style={{ backgroundColor: cat.color }}>
+                {cat.name}
+                <button onClick={() => removeCatMutation.mutate(cat.id)}
+                  className="opacity-0 group-hover/cat:opacity-100 hover:opacity-70 transition-opacity">×</button>
+              </span>
+            ))}
+            {showCatDropdown && <div className="fixed inset-0 z-20" onClick={() => setShowCatDropdown(false)} />}
+            <div className="relative">
+              <button type="button" onClick={() => setShowCatDropdown(!showCatDropdown)}
+                className="rounded border border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted hover:bg-secondary">+ 추가</button>
+              {showCatDropdown && (
+                <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-lg border border-border bg-card p-1 shadow-lg">
+                  {allCategories.map((c) => {
+                    const on = bookCategories.some((bc) => bc.id === c.id);
+                    return (
+                      <div key={c.id} className="flex items-center justify-between rounded px-2 py-1 hover:bg-secondary">
+                        <button type="button" onClick={() => { if (!on) addCatMutation.mutate(c.id); }}
+                          className={`flex items-center gap-1.5 text-[11px] ${on ? 'text-muted' : ''}`}>
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />{c.name}{on && ' ✓'}
+                        </button>
+                        <button type="button" onClick={() => { if (confirm(`"${c.name}" 삭제?`)) deleteCatMutation.mutate(c.id); }}
+                          className="text-[10px] text-destructive hover:underline">삭제</button>
+                      </div>
+                    );
+                  })}
+                  <button type="button" onClick={() => setShowCatDropdown(false)}
+                    className="mt-1 w-full rounded px-2 py-1 text-[11px] text-muted hover:bg-secondary">닫기</button>
+                </div>
+              )}
+            </div>
+            {showCategoryAdd ? (
+              <div className="flex items-center gap-1">
+                <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(newCategoryName); } }}
+                  placeholder="새 카테고리" autoFocus className="w-20 rounded border border-border bg-background px-1.5 py-0.5 text-[11px]" />
+                <button type="button" disabled={createCatMutation.isPending} onClick={() => handleCreateCategory(newCategoryName)}
+                  className="text-[11px] text-primary">확인</button>
+                <button type="button" onClick={() => { setShowCategoryAdd(false); setNewCategoryName(''); }}
+                  className="text-[11px] text-muted">취소</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowCategoryAdd(true)} className="text-[11px] text-muted hover:text-foreground">+ 새로 만들기</button>
+            )}
+          </div>
+        </div>
+        {/* 진행률 */}
+        {status === 'READING' && book.totalPages && (
+          <div className="flex items-center gap-4 px-4 py-2.5">
+            <span className="w-20 shrink-0 text-xs text-muted">진행률</span>
+            <div className="flex flex-1 items-center gap-3">
+              <input type="range" min={0} max={book.totalPages} value={displayPage || 0}
+                onChange={(e) => handlePageChange(parseInt(e.target.value))} className="h-1.5 flex-1" />
+              <span className="text-[12px] text-muted">{displayPage}/{book.totalPages} ({progress}%)</span>
+            </div>
+          </div>
+        )}
+        {/* 책 소개 */}
+        <div className="flex items-start gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 pt-1 text-xs text-muted">책 소개</span>
+          <textarea defaultValue={book.description || ''} onBlur={(e) => handleInlineSave('description', e.target.value)}
+            rows={5} placeholder="책 소개를 입력하세요..." className="flex-1 border-none bg-transparent text-[13px] outline-none resize-none focus:bg-secondary/30 rounded px-1 -ml-1" />
+        </div>
+      </div>
+
+      {/* 타이머 */}
+      {status === 'READING' && (
+        <div className="mt-4 flex items-center gap-3 rounded-lg border border-border/40 bg-black/[0.01] px-4 py-3">
+          {activeSession ? (
+            <>
+              <span className="font-mono text-lg font-semibold text-primary">{formatElapsed(elapsed)}</span>
+              <button onClick={handleStopSession} disabled={stopSessionMutation.isPending}
+                className="rounded bg-destructive px-3 py-1 text-xs text-white hover:bg-destructive/90">독서 종료</button>
+            </>
+          ) : (
+            <button onClick={() => startSessionMutation.mutate()} disabled={startSessionMutation.isPending}
+              className="rounded bg-primary px-3 py-1 text-xs text-primary-foreground hover:bg-primary/90">독서 시작</button>
+          )}
+          {sessions && sessions.length > 0 && (
+            <div className="ml-auto flex gap-3 text-[11px] text-muted">
+              {sessions.slice(0, 3).map((s) => (
+                <span key={s.id}>{formatDate(s.startTime)} {s.durationMinutes != null && `${s.durationMinutes}분`}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 노션 스타일 탭 */}
+      {<>
+      <div className="mt-8 flex gap-1 border-b border-border/40">
         {([['records', '독서 기록'], ['reviews', '독후감'], ['highlights', '하이라이트'], ['info', '책 정보']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2 text-sm font-medium ${tab === key ? 'border-b-2 border-primary text-primary' : 'text-muted'}`}>
+            className={`px-3 py-2 text-[13px] transition-colors ${
+              tab === key ? 'border-b-2 border-foreground text-foreground font-medium' : 'text-muted hover:text-foreground'
+            }`}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
       <div className="mt-4">
         {tab === 'records' && <RecordList userBookId={Number(id)} />}
 
         {tab === 'reviews' && (
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-semibold">독후감</h3>
+              <h3 className="text-sm font-semibold">독후감</h3>
               <button onClick={() => setShowReviewEditor(!showReviewEditor)}
-                className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground hover:bg-primary/90">
-                + 독후감 작성
-              </button>
+                className="rounded bg-primary px-3 py-1 text-xs text-primary-foreground hover:bg-primary/90">+ 독후감 작성</button>
             </div>
-
             {showReviewEditor && (
               <div className="mb-4">
-                <ReviewEditor
-                  onSave={(data) => createReviewMutation.mutate(data)}
-                  onCancel={() => setShowReviewEditor(false)}
-                  saving={createReviewMutation.isPending}
-                />
+                <ReviewEditor onSave={(data) => createReviewMutation.mutate(data)} onCancel={() => setShowReviewEditor(false)} saving={createReviewMutation.isPending} />
               </div>
             )}
-
             {reviews?.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">작성한 독후감이 없습니다</p>
+              <p className="py-4 text-center text-[13px] text-muted">작성한 독후감이 없습니다</p>
             ) : (
               <div className="space-y-3">
                 {reviews?.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-border p-4">
+                  <div key={r.id} className="rounded-lg border border-border/40 p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium">{r.title}</h4>
-                        <p className="text-xs text-muted">{formatDate(r.createdAt)}
-                          {r.isPublic && <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-green-700">공개</span>}
+                        <h4 className="text-sm font-medium">{r.title}</h4>
+                        <p className="text-[11px] text-muted">{formatDate(r.createdAt)}
+                          {r.isPublic && <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">공개</span>}
                         </p>
                       </div>
-                      <button onClick={() => deleteReviewMutation.mutate(r.id)}
-                        className="text-xs text-destructive hover:underline">삭제</button>
+                      <button onClick={() => deleteReviewMutation.mutate(r.id)} className="text-[11px] text-destructive hover:underline">삭제</button>
                     </div>
-                    <div className="mt-2 line-clamp-3 text-sm text-muted"
-                      dangerouslySetInnerHTML={{ __html: r.content }} />
+                    <div className="mt-2 line-clamp-3 text-[13px] text-muted" dangerouslySetInnerHTML={{ __html: r.content }} />
                   </div>
                 ))}
               </div>
@@ -571,72 +517,38 @@ export default function BookDetail() {
 
         {tab === 'highlights' && (
           <div>
-            {/* New highlight form */}
-            <div className="mb-4 rounded-lg border border-border p-4">
-              <h3 className="mb-3 font-semibold">새 하이라이트</h3>
+            <div className="mb-4 rounded-lg border border-border/40 p-4">
+              <h3 className="mb-3 text-sm font-semibold">새 하이라이트</h3>
               <div className="space-y-2">
-                <input
-                  type="number"
-                  placeholder="페이지 번호 (선택)"
-                  value={hlPage}
-                  onChange={(e) => setHlPage(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-                <textarea
-                  placeholder="하이라이트 내용 *"
-                  value={hlContent}
-                  onChange={(e) => setHlContent(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-                <textarea
-                  placeholder="메모 (선택)"
-                  value={hlMemo}
-                  onChange={(e) => setHlMemo(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-                <button
-                  onClick={handleSubmitHighlight}
-                  disabled={createHighlightMutation.isPending}
-                  className="rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                  추가
-                </button>
+                <input type="number" placeholder="페이지 번호 (선택)" value={hlPage} onChange={(e) => setHlPage(e.target.value)}
+                  className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-[13px]" />
+                <textarea placeholder="하이라이트 내용 *" value={hlContent} onChange={(e) => setHlContent(e.target.value)} rows={3}
+                  className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-[13px]" />
+                <textarea placeholder="메모 (선택)" value={hlMemo} onChange={(e) => setHlMemo(e.target.value)} rows={2}
+                  className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-[13px]" />
+                <button onClick={handleSubmitHighlight} disabled={createHighlightMutation.isPending}
+                  className="rounded bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50">추가</button>
               </div>
             </div>
-
-            {/* Highlights list */}
             {highlights?.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">저장된 하이라이트가 없습니다</p>
+              <p className="py-4 text-center text-[13px] text-muted">저장된 하이라이트가 없습니다</p>
             ) : (
               <div className="space-y-3">
-                {[...(highlights || [])]
-                  .sort((a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0))
-                  .map((hl) => (
-                    <div key={hl.id} className="rounded-lg border border-border p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {hl.pageNumber != null && (
-                              <span className="inline-block rounded bg-secondary px-2 py-0.5 text-xs font-medium">
-                                p.{hl.pageNumber}
-                              </span>
-                            )}
-                            <span className="text-xs text-muted">{formatDate(hl.createdAt)}</span>
-                          </div>
-                          <p className="mt-1 text-sm">{hl.content}</p>
-                          {hl.memo && (
-                            <p className="mt-1 text-xs italic text-muted">{hl.memo}</p>
-                          )}
+                {[...(highlights || [])].sort((a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0)).map((hl) => (
+                  <div key={hl.id} className="rounded-lg border border-border/40 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {hl.pageNumber != null && <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium">p.{hl.pageNumber}</span>}
+                          <span className="text-[11px] text-muted">{formatDate(hl.createdAt)}</span>
                         </div>
-                        <button
-                          onClick={() => deleteHighlightMutation.mutate(hl.id)}
-                          className="shrink-0 text-xs text-destructive hover:underline">
-                          삭제
-                        </button>
+                        <p className="mt-1 text-[13px]">{hl.content}</p>
+                        {hl.memo && <p className="mt-1 text-[12px] italic text-muted">{hl.memo}</p>}
                       </div>
+                      <button onClick={() => deleteHighlightMutation.mutate(hl.id)} className="text-[11px] text-destructive hover:underline">삭제</button>
                     </div>
-                  ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -644,8 +556,8 @@ export default function BookDetail() {
 
         {tab === 'info' && book.description && (
           <div>
-            <h3 className="mb-2 font-semibold">책 소개</h3>
-            <p className="text-sm leading-relaxed text-muted">{book.description}</p>
+            <h3 className="mb-2 text-sm font-semibold">책 소개</h3>
+            <p className="text-[13px] leading-relaxed text-muted">{book.description}</p>
           </div>
         )}
       </div></>}
