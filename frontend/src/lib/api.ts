@@ -78,7 +78,9 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        // ProtectedRoute가 unauthorized 감지 → /login 리다이렉트 담당
+        // authStore 초기화 → ProtectedRoute가 unauthorized 감지 → /login 리다이렉트
+        const { useAuthStore } = await import('@/stores/authStore');
+        useAuthStore.setState({ user: null, isAuthenticated: false });
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -4,37 +4,45 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, setUser, logout } = useAuthStore();
+  const { isAuthenticated, setUser } = useAuthStore();
   const location = useLocation();
-  const hasToken = !!localStorage.getItem('accessToken');
-  const [status, setStatus] = useState<'checking' | 'ok' | 'unauthorized'>(
-    isAuthenticated ? 'ok' : hasToken ? 'checking' : 'unauthorized'
-  );
+  const [status, setStatus] = useState<'checking' | 'ok' | 'unauthorized'>('checking');
 
   useEffect(() => {
+    // 이미 인증됨
     if (isAuthenticated) {
       setStatus('ok');
       return;
     }
+
+    // 토큰 없음 → 즉시 로그인
     if (!localStorage.getItem('accessToken')) {
       setStatus('unauthorized');
       return;
     }
 
-    // 토큰은 있지만 스토어 미복원 → /auth/me로 세션 복원 시도
-    // api.ts 인터셉터가 401 시 자동 refresh를 처리함
+    // 토큰 있지만 스토어 미복원 → /auth/me로 복원 시도
+    setStatus('checking');
     api.get('/auth/me')
       .then((res) => {
         setUser(res.data.data);
         setStatus('ok');
       })
       .catch(() => {
-        // refresh도 실패한 경우 — 토큰 정리 + 로그인 페이지
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         setStatus('unauthorized');
       });
-  }, [isAuthenticated, setUser, logout]);
+  }, [isAuthenticated, setUser]);
+
+  // 로그아웃 또는 토큰 만료 감지 — isAuthenticated가 false로 바뀌면 재체크
+  useEffect(() => {
+    if (!isAuthenticated && status === 'ok') {
+      if (!localStorage.getItem('accessToken')) {
+        setStatus('unauthorized');
+      }
+    }
+  }, [isAuthenticated, status]);
 
   if (status === 'checking') {
     return (
