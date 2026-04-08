@@ -67,6 +67,7 @@ export default function BookDetail() {
       bookApi.updateBook(userBook!.book.id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['myBook', id] });
+      qc.invalidateQueries({ queryKey: ['myBooks'] });
       toast.success('책 정보가 수정되었습니다');
       setEditingBook(false);
     },
@@ -154,6 +155,7 @@ export default function BookDetail() {
   const deleteMutation = useMutation({
     mutationFn: () => bookApi.removeFromShelf(Number(id)),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myBooks'] });
       toast.success('서재에서 제거되었습니다');
       navigate('/books');
     },

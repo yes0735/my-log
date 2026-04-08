@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi, type BookSearchResult } from '@/features/books/api';
 import toast from 'react-hot-toast';
 
 export default function BookSearch() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -45,6 +46,7 @@ export default function BookSearch() {
       return book;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myBooks'] });
       toast.success('서재에 추가되었습니다!');
       setPendingBook(null);
       setPageInput('');
@@ -87,6 +89,7 @@ export default function BookSearch() {
       return book;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['myBooks'] });
       toast.success('책이 등록되고 서재에 추가되었습니다!');
       navigate('/books');
     },
