@@ -52,15 +52,14 @@ export default function Dashboard() {
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
-          { label: '완독 권수', value: summary?.completedBooks ?? 0, icon: '✅', color: 'text-green-600' },
-          { label: '읽는 중', value: summary?.readingBooks ?? 0, icon: '📖', color: 'text-yellow-600' },
-          { label: '총 페이지', value: (summary?.totalPagesRead ?? 0).toLocaleString(), icon: '📄', color: 'text-blue-600' },
-          { label: '평균 별점', value: summary?.averageRating ?? '-', icon: '⭐', color: 'text-yellow-500' },
-        ].map(({ label, value, icon, color }) => (
+          { label: '완독 권수', value: summary?.completedBooks ?? 0, color: 'text-green-600' },
+          { label: '읽는 중', value: summary?.readingBooks ?? 0, color: 'text-yellow-600' },
+          { label: '총 페이지', value: (summary?.totalPagesRead ?? 0).toLocaleString(), color: 'text-blue-600' },
+          { label: '평균 별점', value: summary?.averageRating ?? '-', color: 'text-yellow-500' },
+        ].map(({ label, value, color }) => (
           <div key={label} className="rounded-lg border border-border bg-card p-4">
-            <span className="text-2xl">{icon}</span>
-            <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-muted">{label}</p>
+            <p className={`text-3xl font-bold ${color}`}>{value}</p>
+            <p className="mt-1 text-xs text-muted">{label}</p>
           </div>
         ))}
       </div>
@@ -160,10 +159,10 @@ export default function Dashboard() {
               return (
                 <Link key={ub.id} to={`/books/${ub.id}`}
                   className="flex gap-3 rounded-lg border border-border p-3 hover:shadow-sm">
-                  <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded bg-secondary/50">
-                    {ub.book.coverImageUrl
-                      ? <img src={ub.book.coverImageUrl} alt="" className="h-full object-contain rounded" />
-                      : <span>📖</span>}
+                  <div className="h-16 w-11 shrink-0 overflow-hidden rounded bg-secondary/50">
+                    {ub.book.coverImageUrl && (
+                      <img src={ub.book.coverImageUrl} alt="" className="h-full w-full object-contain rounded" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="line-clamp-1 text-sm font-medium">{ub.book.title}</p>
@@ -195,10 +194,10 @@ export default function Dashboard() {
                 return (
                   <Link key={ub.id} to={`/books/${ub.id}`}
                     className="flex items-center gap-3 rounded-md p-2 hover:bg-secondary/50">
-                    <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded bg-secondary/50">
-                      {ub.book.coverImageUrl
-                        ? <img src={ub.book.coverImageUrl} alt="" className="h-full object-contain rounded" />
-                        : <span className="text-xs">📖</span>}
+                    <div className="h-10 w-7 shrink-0 overflow-hidden rounded bg-secondary/50">
+                      {ub.book.coverImageUrl && (
+                        <img src={ub.book.coverImageUrl} alt="" className="h-full w-full object-contain rounded" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="line-clamp-1 text-sm font-medium">{ub.book.title}</p>

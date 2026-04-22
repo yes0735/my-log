@@ -91,10 +91,9 @@ export default function Goals() {
       {isLoading ? (
         <p className="text-muted">로딩 중...</p>
       ) : goals?.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-muted">
-          <span className="text-5xl">🎯</span>
-          <p className="mt-4 text-lg">설정된 목표가 없습니다</p>
-          <button onClick={() => setShowForm(true)} className="mt-2 text-primary hover:underline">
+        <div className="flex flex-col items-center rounded-lg border border-dashed border-border/60 py-16 text-muted">
+          <p className="text-sm font-medium">설정된 목표가 없습니다</p>
+          <button onClick={() => setShowForm(true)} className="mt-2 text-xs text-primary hover:underline">
             첫 번째 독서 목표를 설정해보세요
           </button>
         </div>

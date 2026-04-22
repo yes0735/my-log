@@ -94,8 +94,7 @@ export default function Sidebar() {
 function SidebarHeader({ collapsed, onClose, onToggle }: { collapsed?: boolean; onClose?: () => void; onToggle?: () => void }) {
   return (
     <div className="flex h-11 shrink-0 items-center justify-between px-3">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-lg">📚</span>
+      <div className="flex items-center min-w-0">
         {!collapsed && <span className="text-sm font-semibold text-foreground truncate">MyLog</span>}
       </div>
       {onClose && (
@@ -136,7 +135,7 @@ function NavContent() {
                     )
                   }
                 >
-                  <Icon className="h-[18px] w-[18px] shrink-0 opacity-70" />
+                  <Icon className="h-[14px] w-[14px] shrink-0 opacity-50" />
                   <span>{item.label}</span>
                 </NavLink>
               );
@@ -168,7 +167,7 @@ function NavCollapsed() {
               }
               title={item.label}
             >
-              <Icon className="h-[18px] w-[18px] opacity-70" />
+              <Icon className="h-[14px] w-[14px] opacity-50" />
             </NavLink>
           );
         })}
@@ -212,7 +211,7 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           }
           title="설정"
         >
-          <IoSettingsOutline className="h-[18px] w-[18px] shrink-0 opacity-70" />
+          <IoSettingsOutline className="h-[14px] w-[14px] shrink-0 opacity-50" />
           {!collapsed && <span>설정</span>}
         </NavLink>
 
@@ -224,7 +223,7 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           )}
           title="로그아웃"
         >
-          <IoLogOutOutline className="h-[18px] w-[18px] shrink-0 opacity-70" />
+          <IoLogOutOutline className="h-[14px] w-[14px] shrink-0 opacity-50" />
           {!collapsed && <span>로그아웃</span>}
         </button>
       </div>

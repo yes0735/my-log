@@ -4,7 +4,6 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
 import { recordApi, type ReadingRecord } from '@/features/records/api';
 import { formatDate } from '@/lib/utils';
-import { IoCalendarOutline, IoBookOutline } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 
 interface RecordWithBook extends ReadingRecord {
@@ -71,10 +70,9 @@ export default function Records() {
       {loading ? (
         <p className="text-muted">로딩 중...</p>
       ) : allRecords.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-muted">
-          <IoCalendarOutline className="text-5xl" />
-          <p className="mt-4 text-lg">아직 독서 기록이 없습니다</p>
-          <Link to="/books" className="mt-2 text-primary hover:underline">
+        <div className="flex flex-col items-center rounded-lg border border-dashed border-border/60 py-16 text-muted">
+          <p className="text-sm font-medium">아직 독서 기록이 없습니다</p>
+          <Link to="/books" className="mt-2 text-xs text-primary hover:underline">
             서재에서 책을 선택하고 기록을 추가해보세요
           </Link>
         </div>
@@ -86,11 +84,9 @@ export default function Records() {
                 <div className="flex gap-3">
                   {/* 책 표지 */}
                   <Link to={`/books/${r.userBookId}`} className="shrink-0">
-                    <div className="flex h-16 w-11 items-center justify-center rounded bg-secondary/50">
-                      {r.coverImageUrl ? (
-                        <img src={r.coverImageUrl} alt={r.bookTitle} className="h-full rounded object-contain" />
-                      ) : (
-                        <IoBookOutline className="text-lg text-muted" />
+                    <div className="h-16 w-11 overflow-hidden rounded bg-secondary/50">
+                      {r.coverImageUrl && (
+                        <img src={r.coverImageUrl} alt={r.bookTitle} className="h-full w-full rounded object-contain" />
                       )}
                     </div>
                   </Link>

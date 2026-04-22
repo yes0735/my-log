@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookApi } from '@/features/books/api';
 import { categoryApi } from '@/features/category/api';
 import RecordList from '@/features/records/RecordList';
-import { IoArrowBackOutline, IoCreateOutline, IoCheckmarkOutline, IoCloseOutline, IoAddOutline } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 
 const statusLabels: Record<string, string> = {
@@ -122,19 +121,17 @@ export default function RecordDetail() {
       {/* Back button */}
       <button
         onClick={() => navigate('/records')}
-        className="mb-4 flex items-center gap-1 text-sm text-muted hover:text-foreground"
+        className="mb-4 text-sm text-muted hover:text-foreground"
       >
-        <IoArrowBackOutline /> 독서 기록 목록
+        ← 독서 기록 목록
       </button>
 
       {/* Book Info */}
       <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-          <div className="flex h-48 w-32 shrink-0 items-center justify-center self-center rounded-lg bg-secondary/50 sm:self-start">
-            {book.coverImageUrl ? (
-              <img src={book.coverImageUrl} alt={book.title} className="h-full rounded-lg object-contain" />
-            ) : (
-              <span className="text-6xl">📖</span>
+          <div className="h-48 w-32 shrink-0 self-center overflow-hidden rounded-lg bg-secondary/50 sm:self-start">
+            {book.coverImageUrl && (
+              <img src={book.coverImageUrl} alt={book.title} className="h-full w-full rounded-lg object-contain" />
             )}
           </div>
 
@@ -190,15 +187,15 @@ export default function RecordDetail() {
                   <button
                     onClick={handleSave}
                     disabled={updateBookMutation.isPending}
-                    className="flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
-                    <IoCheckmarkOutline /> 저장
+                    저장
                   </button>
                   <button
                     onClick={() => setEditing(false)}
-                    className="flex items-center gap-1 rounded border border-border px-3 py-1.5 text-sm hover:bg-secondary"
+                    className="rounded border border-border px-3 py-1.5 text-sm hover:bg-secondary"
                   >
-                    <IoCloseOutline /> 취소
+                    취소
                   </button>
                 </div>
               </div>
@@ -214,9 +211,9 @@ export default function RecordDetail() {
                   </div>
                   <button
                     onClick={startEditing}
-                    className="flex items-center gap-1 rounded border border-border px-2.5 py-1.5 text-sm text-muted hover:bg-secondary hover:text-foreground"
+                    className="rounded border border-border px-2.5 py-1.5 text-sm text-muted hover:bg-secondary hover:text-foreground"
                   >
-                    <IoCreateOutline size={16} /> 책정보 수정
+                    책정보 수정
                   </button>
                 </div>
 
@@ -267,9 +264,9 @@ export default function RecordDetail() {
                   </div>
                 )}
 
-                {/* Categories */}
+                {/* Tags (구: 카테고리) */}
                 <div className="mt-4">
-                  <span className="text-sm font-medium">카테고리:</span>
+                  <span className="text-sm font-medium">태그:</span>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {bookCategories.map((cat) => (
                       <span
@@ -287,7 +284,7 @@ export default function RecordDetail() {
                       </span>
                     ))}
 
-                    {/* 기존 카테고리에서 추가 */}
+                    {/* 기존 태그에서 추가 */}
                     {allCategories.filter((c) => !bookCategories.some((bc) => bc.id === c.id)).length > 0 && (
                       <select
                         onChange={(e) => {
@@ -299,7 +296,7 @@ export default function RecordDetail() {
                         className="rounded-full border border-dashed border-border bg-background px-2 py-1 text-xs"
                         defaultValue=""
                       >
-                        <option value="" disabled>+ 카테고리 추가</option>
+                        <option value="" disabled>+ 태그 추가</option>
                         {allCategories
                           .filter((c) => !bookCategories.some((bc) => bc.id === c.id))
                           .map((c) => (
@@ -309,7 +306,7 @@ export default function RecordDetail() {
                       </select>
                     )}
 
-                    {/* 새 카테고리 생성 */}
+                    {/* 새 태그 생성 */}
                     {showCategoryAdd ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -317,7 +314,7 @@ export default function RecordDetail() {
                           value={newCategoryName}
                           onChange={(e) => setNewCategoryName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newCategoryName.trim() && !createCategoryMutation.isPending) createCategoryMutation.mutate(newCategoryName.trim()); } }}
-                          placeholder="새 카테고리명"
+                          placeholder="새 태그명"
                           autoFocus
                           className="w-24 rounded border border-border bg-background px-2 py-1 text-xs"
                         />
@@ -325,23 +322,25 @@ export default function RecordDetail() {
                           type="button"
                           disabled={createCategoryMutation.isPending}
                           onClick={() => newCategoryName.trim() && !createCategoryMutation.isPending && createCategoryMutation.mutate(newCategoryName.trim())}
-                          className="rounded bg-primary px-1.5 py-1 text-xs text-primary-foreground disabled:opacity-50"
+                          aria-label="추가"
+                          className="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
                         >
-                          <IoCheckmarkOutline size={12} />
+                          확인
                         </button>
                         <button
                           onClick={() => { setShowCategoryAdd(false); setNewCategoryName(''); }}
-                          className="rounded border border-border px-1.5 py-1 text-xs"
+                          aria-label="취소"
+                          className="rounded border border-border px-2 py-1 text-xs"
                         >
-                          <IoCloseOutline size={12} />
+                          취소
                         </button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setShowCategoryAdd(true)}
-                        className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-1 text-xs text-muted hover:bg-secondary"
+                        className="rounded-full border border-dashed border-border px-2 py-1 text-xs text-muted hover:bg-secondary"
                       >
-                        <IoAddOutline size={12} /> 새 카테고리
+                        + 새 태그
                       </button>
                     )}
                   </div>

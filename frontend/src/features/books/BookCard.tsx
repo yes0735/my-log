@@ -24,11 +24,9 @@ export default function BookCard({ userBook }: { userBook: UserBook }) {
       to={`/books/${userBook.id}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
     >
-      <div className="flex h-48 items-center justify-center bg-secondary/50">
-        {book.coverImageUrl ? (
-          <img src={book.coverImageUrl} alt={book.title} className="h-full object-contain" />
-        ) : (
-          <span className="text-4xl">📖</span>
+      <div className="h-48 overflow-hidden bg-secondary/50">
+        {book.coverImageUrl && (
+          <img src={book.coverImageUrl} alt={book.title} className="h-full w-full object-contain" />
         )}
       </div>
       <div className="flex flex-1 flex-col p-3">

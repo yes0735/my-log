@@ -59,19 +59,14 @@ export default function Stats() {
       {/* Summary cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
-          { label: '전체 책', value: summary?.totalBooks ?? 0, icon: '📚' },
-          { label: '완독', value: summary?.completedBooks ?? 0, icon: '✅' },
-          { label: '읽는 중', value: summary?.readingBooks ?? 0, icon: '📖' },
-          { label: '총 페이지', value: (summary?.totalPagesRead ?? 0).toLocaleString(), icon: '📄' },
-        ].map(({ label, value, icon }) => (
+          { label: '전체 책', value: summary?.totalBooks ?? 0 },
+          { label: '완독', value: summary?.completedBooks ?? 0 },
+          { label: '읽는 중', value: summary?.readingBooks ?? 0 },
+          { label: '총 페이지', value: (summary?.totalPagesRead ?? 0).toLocaleString() },
+        ].map(({ label, value }) => (
           <div key={label} className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{icon}</span>
-              <div>
-                <p className="text-2xl font-bold">{value}</p>
-                <p className="text-xs text-muted">{label}</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold">{value}</p>
+            <p className="mt-1 text-xs text-muted">{label}</p>
           </div>
         ))}
       </div>

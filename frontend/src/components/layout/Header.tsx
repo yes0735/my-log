@@ -34,15 +34,15 @@ export default function Header() {
     <header className="sticky top-0 z-30 flex h-11 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-md">
       <div className="flex items-center gap-2">
         <button onClick={handleMenuClick} className="rounded p-1.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03]" aria-label="Toggle sidebar">
-          <IoMenuOutline className="h-4 w-4 text-muted" />
+          <IoMenuOutline className="h-[14px] w-[14px] text-muted opacity-60" />
         </button>
-        {isMobile && <span className="text-sm font-semibold">📚 MyLog</span>}
+        {isMobile && <span className="text-sm font-semibold">MyLog</span>}
       </div>
 
       <div className="flex items-center gap-1.5">
         <button onClick={() => setDark(!dark)}
           className="rounded p-1.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03]" aria-label="Toggle dark mode">
-          {dark ? <IoSunnyOutline className="h-4 w-4 text-muted" /> : <IoMoonOutline className="h-4 w-4 text-muted" />}
+          {dark ? <IoSunnyOutline className="h-[14px] w-[14px] text-muted opacity-60" /> : <IoMoonOutline className="h-[14px] w-[14px] text-muted opacity-60" />}
         </button>
 
         {isAuthenticated ? (
