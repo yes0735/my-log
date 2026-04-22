@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
-import { IoTrashOutline } from 'react-icons/io5';
 import type { UserBook } from '@/types/book';
 
 const statusLabels: Record<string, string> = {
@@ -48,43 +47,38 @@ export default function SortableBookCard({ userBook, onDelete, categories = [] }
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : 'auto' as const,
+    touchAction: 'none' as const, // 모바일 스크롤 충돌 방지 (TouchSensor delay 기반 활성)
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative group">
-      {/* Drag handle — 카드 상단 */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-0 left-0 right-0 h-8 z-10 cursor-grab active:cursor-grabbing
-                   flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <span className="text-xs text-muted bg-card/80 rounded px-2 py-0.5 backdrop-blur-sm">⠿</span>
-      </div>
-
-      {/* Delete button */}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative group cursor-grab active:cursor-grabbing"
+    >
+      {/* Delete button — hover 시 × 기호 */}
       <button
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           onDelete(userBook.id);
         }}
-        className="absolute top-2 right-2 z-20 rounded-full bg-card/80 p-1.5 opacity-0 group-hover:opacity-100
+        aria-label="삭제"
+        className="absolute top-1.5 right-1.5 z-20 rounded-full bg-card/90 px-1.5 text-base leading-none text-muted opacity-0 group-hover:opacity-100
                    hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm"
-        title="서재에서 제거"
       >
-        <IoTrashOutline size={14} />
+        ×
       </button>
 
       <Link
         to={`/books/${userBook.id}`}
         className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
       >
-        <div className="flex h-48 shrink-0 items-center justify-center bg-secondary/50">
-          {book.coverImageUrl ? (
-            <img src={book.coverImageUrl} alt={book.title} className="h-full object-contain" />
-          ) : (
-            <span className="text-4xl">📖</span>
+        <div className="h-48 shrink-0 overflow-hidden bg-secondary/50">
+          {book.coverImageUrl && (
+            <img src={book.coverImageUrl} alt={book.title} className="h-full w-full object-contain" />
           )}
         </div>
         <div className="flex flex-1 flex-col p-3">
