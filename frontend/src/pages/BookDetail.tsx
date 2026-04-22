@@ -124,7 +124,7 @@ export default function BookDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { status?: string; rating?: number; currentPage?: number }) =>
+    mutationFn: (data: { status?: string; rating?: number; currentPage?: number; startDate?: string; endDate?: string }) =>
       bookApi.updateMyBook(Number(id), data),
     onSuccess: (_data, variables) => {
       if ('currentPage' in variables && Object.keys(variables).length === 1) {
@@ -134,6 +134,7 @@ export default function BookDetail() {
         );
       } else {
         qc.invalidateQueries({ queryKey: ['myBook', id] });
+        qc.invalidateQueries({ queryKey: ['myBooks'] });
       }
     },
   });
@@ -294,8 +295,12 @@ export default function BookDetail() {
   if (isLoading) return <p className="text-muted">로딩 중...</p>;
   if (!userBook) return <p className="text-muted">책을 찾을 수 없습니다</p>;
 
-  const { book, status, rating, currentPage } = userBook;
+  const { book, status, rating, currentPage, startDate, endDate } = userBook;
   const displayPage = localPage ?? currentPage;
+  // Plan SC: SC-09 — 결측 배너 조건 (READING이면 startDate, COMPLETED면 둘 다)
+  const needsDateGuide =
+    (status === 'READING' && !startDate) ||
+    (status === 'COMPLETED' && (!startDate || !endDate));
   const progress = book.totalPages && displayPage
     ? Math.round((displayPage / book.totalPages) * 100)
     : 0;
@@ -311,12 +316,24 @@ export default function BookDetail() {
         ← 이전 페이지
       </button>
 
+      {/* Plan SC: SC-09 — 결측 날짜 가이드 배너 */}
+      {needsDateGuide && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-[13px]">
+          <span className="flex-1">
+            {status === 'READING'
+              ? '읽기 시작일을 입력하면 캘린더 뷰에서 이 책을 확인할 수 있어요.'
+              : '시작일/완독일을 입력하면 캘린더 뷰에서 이 책의 독서 여정을 확인할 수 있어요.'}
+          </span>
+          <span className="text-xs text-muted">↓ 아래에서 입력</span>
+        </div>
+      )}
+
       {/* 노션 커버 영역 */}
       <div className="relative mb-16 flex h-36 items-end rounded-xl bg-gradient-to-br from-primary/10 via-secondary/30 to-primary/5 sm:h-44">
-        <div className="absolute -bottom-12 left-6 flex h-32 w-[5.5rem] items-center justify-center rounded-lg border border-border/40 bg-card shadow-lg sm:h-40 sm:w-28">
-          {book.coverImageUrl ? (
-            <img src={book.coverImageUrl} alt={book.title} className="h-full rounded-lg object-contain" />
-          ) : <span className="text-5xl">📖</span>}
+        <div className="absolute -bottom-12 left-6 h-32 w-[5.5rem] overflow-hidden rounded-lg border border-border/40 bg-secondary/30 shadow-lg sm:h-40 sm:w-28">
+          {book.coverImageUrl && (
+            <img src={book.coverImageUrl} alt={book.title} className="h-full w-full rounded-lg object-contain" />
+          )}
         </div>
         <div className="absolute right-4 top-4">
           <button onClick={() => { if (confirm('이 책을 서재에서 제거하시겠습니까?')) deleteMutation.mutate(); }}
@@ -346,6 +363,20 @@ export default function BookDetail() {
           <input defaultValue={book.publisher || ''} onBlur={(e) => handleInlineSave('publisher', e.target.value)}
             placeholder="없음" className="flex-1 border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 rounded px-1 -ml-1" />
         </div>
+        {/* 알라딘 분야 — 읽기 전용, > 구분자를 시각적 chevron으로 변환 */}
+        {book.originalCategory && (
+          <div className="flex items-center gap-4 px-4 py-2.5">
+            <span className="w-20 shrink-0 text-xs text-muted">분야</span>
+            <div className="flex flex-1 flex-wrap items-center gap-1 text-[13px] text-muted">
+              {book.originalCategory.split('>').map((segment, i, arr) => (
+                <span key={i} className="flex items-center gap-1">
+                  <span>{segment.trim()}</span>
+                  {i < arr.length - 1 && <span className="text-muted/50">›</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {/* 총 페이지 */}
         <div className="flex items-center gap-4 px-4 py-2.5">
           <span className="w-20 shrink-0 text-xs text-muted">페이지</span>
@@ -360,6 +391,26 @@ export default function BookDetail() {
             {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
+        {/* Plan SC: SC-09 — 읽기 시작일 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">시작일</span>
+          <input
+            type="date"
+            value={startDate || ''}
+            onChange={(e) => updateMutation.mutate({ startDate: e.target.value })}
+            className="rounded border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 px-1 -ml-1"
+          />
+        </div>
+        {/* Plan SC: SC-09 — 완독일 */}
+        <div className="flex items-center gap-4 px-4 py-2.5">
+          <span className="w-20 shrink-0 text-xs text-muted">완독일</span>
+          <input
+            type="date"
+            value={endDate || ''}
+            onChange={(e) => updateMutation.mutate({ endDate: e.target.value })}
+            className="rounded border-none bg-transparent text-[13px] outline-none focus:bg-secondary/30 px-1 -ml-1"
+          />
+        </div>
         {/* 별점 */}
         <div className="flex items-center gap-4 px-4 py-2.5">
           <span className="w-20 shrink-0 text-xs text-muted">별점</span>
@@ -371,9 +422,9 @@ export default function BookDetail() {
             {rating && <span className="ml-1 self-center text-xs text-muted">{rating}</span>}
           </div>
         </div>
-        {/* 카테고리 */}
+        {/* 태그 (구: 카테고리 — 내부 식별자/API는 Category 유지) */}
         <div className="flex items-start gap-4 px-4 py-2.5">
-          <span className="w-20 shrink-0 pt-0.5 text-xs text-muted">카테고리</span>
+          <span className="w-20 shrink-0 pt-0.5 text-xs text-muted">태그</span>
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
             {bookCategories.map((cat) => (
               <span key={cat.id} className="group/cat inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-white"
@@ -411,7 +462,7 @@ export default function BookDetail() {
               <div className="flex items-center gap-1">
                 <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(newCategoryName); } }}
-                  placeholder="새 카테고리" autoFocus className="w-20 rounded border border-border bg-background px-1.5 py-0.5 text-[11px]" />
+                  placeholder="새 태그" autoFocus className="w-24 rounded border border-border bg-background px-1.5 py-0.5 text-[11px]" />
                 <button type="button" disabled={createCatMutation.isPending} onClick={() => handleCreateCategory(newCategoryName)}
                   className="text-[11px] text-primary">확인</button>
                 <button type="button" onClick={() => { setShowCategoryAdd(false); setNewCategoryName(''); }}
