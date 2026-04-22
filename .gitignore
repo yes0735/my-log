@@ -12,6 +12,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Spring Boot 로컬 설정 (로컬 키 포함)
+backend/src/main/resources/application-local.yml
+
 # Build outputs
 */build/
 */dist/

@@ -50,3 +50,11 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// 로컬 개발 시 application-local.yml을 자동으로 오버레이 로드
+// (application-local.yml이 없어도 Spring이 graceful하게 기본값으로 동작)
+// 프로덕션은 SPRING_PROFILES_ACTIVE=prod 환경변수로 Railway에서 별도 관리
+bootRun {
+    systemProperty 'spring.profiles.active',
+            System.getProperty('spring.profiles.active', 'local')
+}

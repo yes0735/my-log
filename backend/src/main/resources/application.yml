@@ -76,10 +76,11 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
 
-# Naver Book Search API
-naver:
-  client-id: arfLd8NTbndr22CjIcVT
-  client-secret: RMI0TMsXrc
+# Aladin TTB Open API (replaces Naver)
+# Key 발급: https://blog.aladin.co.kr/openapi/manage
+# 키 없을 경우 Mock 데이터로 폴백 (개발 편의)
+aladin:
+  ttb-key: ${ALADIN_TTB_KEY:}
 
 # Logging
 logging:

@@ -41,6 +41,7 @@ export default function BookSearch() {
         coverImageUrl: result.coverImageUrl,
         totalPages: totalPages ?? result.totalPages ?? undefined,
         description: result.description,
+        originalCategory: result.originalCategory ?? undefined,
       });
       await bookApi.addToShelf(book.id);
       return book;
@@ -50,6 +51,7 @@ export default function BookSearch() {
       toast.success('서재에 추가되었습니다!');
       setPendingBook(null);
       setPageInput('');
+      navigate('/books');
     },
     onError: (err: unknown) => {
       const error = err as { response?: { data?: { error?: { message?: string } } } };
@@ -138,11 +140,9 @@ export default function BookSearch() {
           <div className="mt-4 space-y-3">
             {results.map((r, i) => (
               <div key={i} className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:gap-4 sm:p-4">
-                <div className="flex h-24 w-16 shrink-0 items-center justify-center self-center rounded bg-secondary/50 sm:self-start">
-                  {r.coverImageUrl ? (
-                    <img src={r.coverImageUrl} alt={r.title} className="h-full object-contain rounded" />
-                  ) : (
-                    <span className="text-2xl">📖</span>
+                <div className="h-24 w-16 shrink-0 self-center overflow-hidden rounded bg-secondary/50 sm:self-start">
+                  {r.coverImageUrl && (
+                    <img src={r.coverImageUrl} alt={r.title} className="h-full w-full object-contain rounded" />
                   )}
                 </div>
                 <div className="flex-1 text-center sm:text-left">
