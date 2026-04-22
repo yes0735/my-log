@@ -11,6 +11,7 @@ export interface Book {
   totalPages?: number;
   description?: string;
   publishedDate?: string;
+  originalCategory?: string; // 알라딘 계층형 분류 ("국내도서>소설>한국소설")
 }
 
 export interface UserBook {

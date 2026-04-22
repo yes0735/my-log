@@ -15,4 +15,5 @@ public class BookCreateRequest {
     private Integer totalPages;
     private String description;
     private String publishedDate;
+    private String originalCategory;
 }

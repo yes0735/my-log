@@ -44,6 +44,7 @@ public class BookService {
                 .totalPages(request.getTotalPages())
                 .description(request.getDescription())
                 .publishedDate(request.getPublishedDate() != null ? LocalDate.parse(request.getPublishedDate()) : null)
+                .originalCategory(request.getOriginalCategory())
                 .createdByUserId(userId)
                 .build();
 

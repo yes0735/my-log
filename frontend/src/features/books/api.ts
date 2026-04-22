@@ -11,6 +11,7 @@ export interface BookSearchResult {
   totalPages: number | null;
   description: string;
   publishedDate: string;
+  originalCategory?: string | null;
 }
 
 export const bookApi = {
@@ -29,7 +30,7 @@ export const bookApi = {
   getMyBook: (id: number) =>
     api.get<ApiResponse<UserBook>>(`/my/books/${id}`).then((r) => r.data.data),
 
-  updateMyBook: (id: number, data: { status?: string; rating?: number; currentPage?: number }) =>
+  updateMyBook: (id: number, data: { status?: string; rating?: number; currentPage?: number; startDate?: string; endDate?: string }) =>
     api.patch<ApiResponse<UserBook>>(`/my/books/${id}`, data).then((r) => r.data.data),
 
   removeFromShelf: (id: number) =>

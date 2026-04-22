@@ -42,6 +42,11 @@ public class Book extends BaseEntity {
     @Column(name = "published_date")
     private LocalDate publishedDate;
 
+    // 알라딘 원본 분류 (계층형 경로, "국내도서>소설>한국소설" 형태)
+    // Design Ref: §3.1 — Aladin categoryName passthrough (read-only 참고용)
+    @Column(name = "original_category", length = 500)
+    private String originalCategory;
+
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
 

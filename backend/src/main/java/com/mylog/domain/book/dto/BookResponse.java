@@ -18,6 +18,7 @@ public class BookResponse {
     private Integer totalPages;
     private String description;
     private String publishedDate;
+    private String originalCategory;
 
     public static BookResponse from(Book book) {
         return BookResponse.builder()
@@ -30,6 +31,7 @@ public class BookResponse {
                 .totalPages(book.getTotalPages())
                 .description(book.getDescription())
                 .publishedDate(book.getPublishedDate() != null ? book.getPublishedDate().toString() : null)
+                .originalCategory(book.getOriginalCategory())
                 .build();
     }
 }

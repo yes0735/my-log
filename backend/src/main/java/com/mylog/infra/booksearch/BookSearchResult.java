@@ -18,4 +18,6 @@ public class BookSearchResult {
     private Integer totalPages;
     private String description;
     private String publishedDate;
+    // 알라딘 categoryName (계층형 경로, e.g. "국내도서>소설>한국소설")
+    private String originalCategory;
 }
